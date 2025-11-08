@@ -79,8 +79,9 @@ export class TailscaleManager {
     await this.ensureDaemonRunning();
 
     try {
+      const escapedKey = keyToUse.replace(/'/g, "'\\''");
       const { stdout, stderr } = await execAsync(
-        `tailscale --socket=${this.socketPath} up --authkey=${keyToUse} --accept-routes --timeout=30s`
+        `tailscale --socket=${this.socketPath} up --authkey='${escapedKey}' --accept-routes --timeout=30s`
       );
       
       if (stderr && stderr.includes("error")) {
