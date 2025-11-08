@@ -51,9 +51,9 @@ export default function Dashboard() {
         />
         <MetricCard
           title="Last Scan"
-          value={lastScan ? new Date(lastScan.startedAt).toLocaleDateString() : "Never"}
+          value={lastScan?.startedAt ? new Date(lastScan.startedAt).toLocaleDateString() : "Never"}
           icon={Clock}
-          description={lastScan ? new Date(lastScan.startedAt).toLocaleTimeString() : "Run your first scan"}
+          description={lastScan?.startedAt ? new Date(lastScan.startedAt).toLocaleTimeString() : "Run your first scan"}
         />
       </div>
 
@@ -67,7 +67,7 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground mb-4">
-              {asymmetries} asymmetric route{asymmetries !== 1 ? 's' : ''} detected in your network. 
+              {asymmetries || 0} asymmetric route{asymmetries !== 1 ? 's' : ''} detected in your network. 
               These can cause suboptimal routing and performance issues.
             </p>
             <Link href="/topology">
@@ -146,12 +146,12 @@ export default function Dashboard() {
                     <div className="min-w-0 flex-1">
                       <p className="font-mono text-sm font-medium">{scan.subnet}</p>
                       <p className="text-xs text-muted-foreground">
-                        {new Date(scan.startedAt).toLocaleString()}
+                        {scan.startedAt ? new Date(scan.startedAt).toLocaleString() : "Unknown"}
                       </p>
                     </div>
                     <div className="text-right ml-4">
-                      <p className="text-sm font-medium">{scan.routersFound} routers</p>
-                      {scan.asymmetriesFound > 0 && (
+                      <p className="text-sm font-medium">{scan.routersFound || 0} routers</p>
+                      {(scan.asymmetriesFound || 0) > 0 && (
                         <p className="text-xs text-warning">
                           {scan.asymmetriesFound} issue{scan.asymmetriesFound !== 1 ? 's' : ''}
                         </p>

@@ -41,7 +41,7 @@ export default function ScanPage() {
     mutationFn: async (data: InsertScan) => {
       return apiRequest("POST", "/api/scans", data);
     },
-    onSuccess: (scan) => {
+    onSuccess: (scan: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/scans"] });
       setActiveScan(scan);
       setScanProgress(0);
@@ -233,14 +233,14 @@ export default function ScanPage() {
                     <div>
                       <p className="font-mono text-sm font-medium">{scan.subnet}</p>
                       <p className="text-xs text-muted-foreground">
-                        {new Date(scan.startedAt).toLocaleString()}
+                        {scan.startedAt ? new Date(scan.startedAt).toLocaleString() : "Unknown"}
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-6 text-right">
                     <div>
-                      <p className="text-sm font-medium">{scan.routersFound} routers</p>
-                      {scan.asymmetriesFound > 0 && (
+                      <p className="text-sm font-medium">{scan.routersFound || 0} routers</p>
+                      {(scan.asymmetriesFound || 0) > 0 && (
                         <div className="flex items-center gap-1 text-xs text-warning">
                           <AlertTriangle className="h-3 w-3" />
                           {scan.asymmetriesFound} asymmetric
