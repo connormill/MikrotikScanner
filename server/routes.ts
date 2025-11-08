@@ -4,7 +4,7 @@ import { DatabaseStorage } from "./db-storage";
 import { MikrotikClient } from "./mikrotik";
 import { TailscaleManager } from "./tailscale";
 import { NetworkScanner, type ScanProgress } from "./scanner";
-import { insertScanSchema } from "@shared/schema";
+import { insertScanSchema, updateRouterSchema } from "@shared/schema";
 import { z } from "zod";
 import { initializeDemoData } from "./demo-data";
 
@@ -54,9 +54,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/routers/:id", async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const updates = req.body;
+      const validatedUpdates = updateRouterSchema.parse(req.body);
       
-      const updated = await storage.updateRouter(id, updates);
+      const updated = await storage.updateRouter(id, validatedUpdates);
       
       if (!updated) {
         return res.status(404).json({ error: "Router not found" });
@@ -64,6 +64,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json(updated);
     } catch (error: any) {
+      if (error.name === "ZodError") {
+        return res.status(400).json({ error: "Invalid update data", details: error.errors });
+      }
       res.status(500).json({ error: error.message });
     }
   });

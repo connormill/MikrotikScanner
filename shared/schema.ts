@@ -104,7 +104,13 @@ export const insertSettingsSchema = createInsertSchema(settings).omit({
   id: true,
 });
 
+export const updateRouterSchema = z.object({
+  hostname: z.string().nullable().optional(),
+  identity: z.string().nullable().optional(),
+});
+
 export type InsertRouter = z.infer<typeof insertRouterSchema>;
+export type UpdateRouter = z.infer<typeof updateRouterSchema>;
 export type Router = typeof routers.$inferSelect;
 
 export type InsertScan = z.infer<typeof insertScanSchema>;
