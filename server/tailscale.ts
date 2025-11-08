@@ -6,10 +6,15 @@ const execAsync = promisify(exec);
 export class TailscaleManager {
   private authKey: string;
   private socketPath: string;
+  private socksPort: number = 1055;
 
   constructor(authKey: string, socketPath: string = "/tmp/tailscale/tailscaled.sock") {
     this.authKey = authKey;
     this.socketPath = socketPath;
+  }
+  
+  getSocksProxyUrl(): string {
+    return `socks5://localhost:${this.socksPort}`;
   }
 
   private async checkTailscaleInstalled(): Promise<boolean> {
@@ -92,6 +97,20 @@ export class TailscaleManager {
       }
       
       console.log("Successfully connected to Tailscale network");
+      
+      // Start SOCKS5 proxy for userspace networking
+      try {
+        await execAsync(`pkill -f 'tailscale.*socks5'`);
+      } catch {
+        // Ignore if no proxy running
+      }
+      
+      execAsync(
+        `nohup tailscale --socket=${this.socketPath} serve --bg socks5 localhost:${this.socksPort} > /tmp/tailscale/socks5.log 2>&1 &`
+      );
+      
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      console.log(`SOCKS5 proxy started on localhost:${this.socksPort}`);
     } catch (error: any) {
       console.error("Tailscale connection error:", error);
       
