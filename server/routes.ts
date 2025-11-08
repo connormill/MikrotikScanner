@@ -1,6 +1,6 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./storage";
+import { DatabaseStorage } from "./db-storage";
 import { MikrotikClient } from "./mikrotik";
 import { TailscaleManager } from "./tailscale";
 import { NetworkScanner, type ScanProgress } from "./scanner";
@@ -8,6 +8,7 @@ import { insertScanSchema } from "@shared/schema";
 import { z } from "zod";
 import { initializeDemoData } from "./demo-data";
 
+const storage = new DatabaseStorage();
 const scanProgressClients = new Map<string, Response[]>();
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -25,7 +26,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   if (process.env.NODE_ENV === "development") {
     const routers = await storage.getAllRouters();
     if (routers.length === 0) {
-      await initializeDemoData();
+      await initializeDemoData(storage);
     }
   }
 
@@ -90,7 +91,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const settings = await storage.getSettings();
       const username = settings?.mikrotikUsername || defaultUsername;
       const password = settings?.mikrotikPassword || defaultPassword;
-      const scanner = new NetworkScanner(username, password);
+      const scanner = new NetworkScanner(username, password, storage);
 
       (async () => {
         try {
