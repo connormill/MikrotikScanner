@@ -226,7 +226,16 @@ export default function SettingsPage() {
                   <div className="space-y-3">
                     <div className="p-3 rounded-lg bg-muted/50 border border-muted">
                       <p className="text-xs text-muted-foreground">
-                        You can use the auth key configured in Replit Secrets, or enter a new one below to override it.
+                        You can use the auth key configured in Replit Secrets, or enter a new one below to override it.{" "}
+                        <a
+                          href="https://login.tailscale.com/admin/settings/keys"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary hover:underline font-medium"
+                          data-testid="link-generate-authkey"
+                        >
+                          Generate a new auth key →
+                        </a>
                       </p>
                     </div>
 
@@ -241,17 +250,6 @@ export default function SettingsPage() {
                         disabled={connectTailscaleMutation.isPending}
                         data-testid="input-tailscale-authkey"
                       />
-                      <p className="text-xs text-muted-foreground">
-                        Generate a new key at{" "}
-                        <a
-                          href="https://login.tailscale.com/admin/settings/keys"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-primary hover:underline"
-                        >
-                          login.tailscale.com/admin/settings/keys
-                        </a>
-                      </p>
                     </div>
 
                     <Button
