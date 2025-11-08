@@ -5,9 +5,11 @@ const execAsync = promisify(exec);
 
 export class TailscaleManager {
   private authKey: string;
+  private socketPath: string;
 
-  constructor(authKey: string) {
+  constructor(authKey: string, socketPath: string = "/tmp/tailscale/tailscaled.sock") {
     this.authKey = authKey;
+    this.socketPath = socketPath;
   }
 
   private async checkTailscaleInstalled(): Promise<boolean> {
@@ -16,6 +18,18 @@ export class TailscaleManager {
       return true;
     } catch {
       return false;
+    }
+  }
+
+  private async ensureDaemonRunning(): Promise<void> {
+    try {
+      await execAsync(`tailscale --socket=${this.socketPath} status`);
+    } catch {
+      console.log("Starting Tailscale daemon...");
+      await execAsync(
+        `mkdir -p /tmp/tailscale && nohup tailscaled --state=/tmp/tailscale/tailscaled.state --socket=${this.socketPath} --tun=userspace-networking > /tmp/tailscale/daemon.log 2>&1 &`
+      );
+      await new Promise(resolve => setTimeout(resolve, 2000));
     }
   }
 
@@ -29,9 +43,11 @@ export class TailscaleManager {
       throw new Error("Tailscale auth key is not configured. Please set TAILSCALE_AUTH_KEY environment variable.");
     }
 
+    await this.ensureDaemonRunning();
+
     try {
       const { stdout, stderr } = await execAsync(
-        `tailscale up --authkey=${this.authKey} --accept-routes --timeout=10s`
+        `tailscale --socket=${this.socketPath} up --authkey=${this.authKey} --accept-routes --timeout=10s`
       );
       
       if (stderr && stderr.includes("error")) {
@@ -61,8 +77,10 @@ export class TailscaleManager {
       };
     }
 
+    await this.ensureDaemonRunning();
+
     try {
-      const { stdout } = await execAsync("tailscale status --json");
+      const { stdout } = await execAsync(`tailscale --socket=${this.socketPath} status --json`);
       const status = JSON.parse(stdout);
       
       const self = status.Self;
@@ -89,8 +107,10 @@ export class TailscaleManager {
       throw new Error("Tailscale is not installed on this system.");
     }
 
+    await this.ensureDaemonRunning();
+
     try {
-      await execAsync("tailscale down");
+      await execAsync(`tailscale --socket=${this.socketPath} down`);
     } catch (error: any) {
       throw new Error(`Failed to disconnect from Tailscale: ${error.message}`);
     }
