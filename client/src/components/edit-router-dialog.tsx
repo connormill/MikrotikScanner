@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -26,6 +26,13 @@ export function EditRouterDialog({ router, open, onOpenChange }: EditRouterDialo
   const [hostname, setHostname] = useState(router.hostname || "");
   const [identity, setIdentity] = useState(router.identity || "");
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (open) {
+      setHostname(router.hostname || "");
+      setIdentity(router.identity || "");
+    }
+  }, [open, router]);
 
   const updateMutation = useMutation({
     mutationFn: async (updates: Partial<Router>) => {
