@@ -1,0 +1,98 @@
+import CIDR from "ip-cidr";
+import { MikrotikClient } from "./mikrotik";
+import type { Router, OSPFNeighbor } from "@shared/schema";
+import { storage } from "./storage";
+
+export interface ScanProgress {
+  progress: number;
+  status: "scanning" | "completed" | "error";
+  routersFound: number;
+  currentIp?: string;
+  error?: string;
+}
+
+export class NetworkScanner {
+  private mikrotikClient: MikrotikClient;
+
+  constructor(username: string, password: string) {
+    this.mikrotikClient = new MikrotikClient(username, password);
+  }
+
+  async scanSubnet(
+    subnet: string,
+    onProgress?: (progress: ScanProgress) => void
+  ): Promise<{ routers: Router[]; count: number }> {
+    try {
+      const cidr = new CIDR(subnet);
+      const ips = cidr.toArray();
+      const totalIps = ips.length;
+      const routers: Router[] = [];
+      
+      for (let i = 0; i < ips.length; i++) {
+        const ip = ips[i];
+        const progress = Math.floor(((i + 1) / totalIps) * 100);
+        
+        if (onProgress) {
+          onProgress({
+            progress,
+            status: "scanning",
+            routersFound: routers.length,
+            currentIp: ip,
+          });
+        }
+
+        const isOnline = await this.mikrotikClient.testConnection(ip);
+        
+        if (isOnline) {
+          const systemInfo = await this.mikrotikClient.getSystemInfo(ip);
+          const ospfNeighbors = await this.mikrotikClient.getOSPFNeighbors(ip);
+          
+          const existingRouter = await storage.getRouterByIp(ip);
+          
+          if (existingRouter) {
+            const updated = await storage.updateRouter(existingRouter.id, {
+              status: "online",
+              identity: systemInfo.identity,
+              version: systemInfo.version,
+              model: systemInfo.model,
+              ospfNeighbors,
+              lastSeen: new Date(),
+            });
+            if (updated) routers.push(updated);
+          } else {
+            const router = await storage.createRouter({
+              ip,
+              hostname: systemInfo.identity,
+              identity: systemInfo.identity,
+              version: systemInfo.version,
+              model: systemInfo.model,
+              status: "online",
+              ospfNeighbors,
+            });
+            routers.push(router);
+          }
+        }
+      }
+
+      if (onProgress) {
+        onProgress({
+          progress: 100,
+          status: "completed",
+          routersFound: routers.length,
+        });
+      }
+
+      return { routers, count: routers.length };
+    } catch (error: any) {
+      if (onProgress) {
+        onProgress({
+          progress: 0,
+          status: "error",
+          routersFound: 0,
+          error: error.message,
+        });
+      }
+      throw error;
+    }
+  }
+}
