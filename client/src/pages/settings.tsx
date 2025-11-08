@@ -7,38 +7,71 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Shield, Save, CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { Shield, Save, CheckCircle2, XCircle, Loader2, Power, Wifi } from "lucide-react";
 import type { Settings as SettingsType } from "@shared/schema";
 
 export default function SettingsPage() {
   const { toast } = useToast();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [authKey, setAuthKey] = useState("");
 
   const { data: settings } = useQuery<SettingsType>({
     queryKey: ["/api/settings"],
   });
 
-  const { data: tailscaleStatus } = useQuery<{ connected: boolean; ip?: string; error?: string }>({
+  const { data: daemonStatus } = useQuery<{ running: boolean; error?: string }>({
+    queryKey: ["/api/tailscale/daemon/status"],
+    refetchInterval: 5000,
+  });
+
+  const { data: tailscaleStatus } = useQuery<{ 
+    connected: boolean; 
+    daemonRunning: boolean;
+    ip?: string; 
+    error?: string 
+  }>({
     queryKey: ["/api/tailscale/status"],
     refetchInterval: 10000,
   });
 
-  const connectTailscaleMutation = useMutation({
+  const startDaemonMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest("POST", "/api/tailscale/connect", {});
+      return apiRequest("POST", "/api/tailscale/daemon/start", {});
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tailscale/daemon/status"] });
       queryClient.invalidateQueries({ queryKey: ["/api/tailscale/status"] });
       toast({
-        title: "Tailscale connected",
-        description: "Successfully connected to your Tailscale network",
+        title: "Daemon started",
+        description: "Tailscale daemon is now running",
       });
     },
     onError: (error: any) => {
       toast({
+        title: "Failed to start daemon",
+        description: error.message || "Failed to start Tailscale daemon",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const connectTailscaleMutation = useMutation({
+    mutationFn: async (key: string) => {
+      return apiRequest("POST", "/api/tailscale/connect", { authKey: key });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tailscale/status"] });
+      toast({
+        title: "Network connected",
+        description: "Successfully connected to your Tailscale network",
+      });
+      setAuthKey("");
+    },
+    onError: (error: any) => {
+      toast({
         title: "Connection failed",
-        description: error.message || "Failed to connect to Tailscale",
+        description: error.message || "Failed to connect to Tailscale network",
         variant: "destructive",
       });
     },
@@ -77,6 +110,10 @@ export default function SettingsPage() {
     saveCredentialsMutation.mutate({ username, password });
   };
 
+  const handleConnect = () => {
+    connectTailscaleMutation.mutate(authKey);
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -88,75 +125,157 @@ export default function SettingsPage() {
 
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <Shield className="h-5 w-5" />
-                Tailscale Connection
-              </CardTitle>
-              <CardDescription className="mt-2">
-                Connect to your network via Tailscale VPN
-              </CardDescription>
+          <CardTitle className="flex items-center gap-2">
+            <Shield className="h-5 w-5" />
+            Tailscale VPN
+          </CardTitle>
+          <CardDescription>
+            Connect to your network infrastructure via Tailscale
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Daemon Section */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="text-sm font-medium flex items-center gap-2">
+                  <Power className="h-4 w-4" />
+                  Daemon Service
+                </h4>
+                <p className="text-xs text-muted-foreground mt-1">
+                  The background service must be running first
+                </p>
+              </div>
+              {daemonStatus?.running ? (
+                <Badge variant="outline" className="bg-success/10 text-success border-success/20">
+                  <CheckCircle2 className="h-3 w-3 mr-1" />
+                  Running
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="bg-muted text-muted-foreground border-muted-foreground/20">
+                  <XCircle className="h-3 w-3 mr-1" />
+                  Stopped
+                </Badge>
+              )}
             </div>
-            {tailscaleStatus?.connected ? (
-              <Badge variant="outline" className="bg-success/10 text-success border-success/20">
-                <CheckCircle2 className="h-3 w-3 mr-1" />
-                Connected
-              </Badge>
-            ) : (
-              <Badge variant="outline" className="bg-muted text-muted-foreground border-muted-foreground/20">
-                <XCircle className="h-3 w-3 mr-1" />
-                Disconnected
-              </Badge>
+
+            {daemonStatus?.error && (
+              <div className="p-3 rounded-lg bg-destructive/5 border border-destructive/20">
+                <p className="text-sm text-destructive">{daemonStatus.error}</p>
+              </div>
+            )}
+
+            {!daemonStatus?.running && !daemonStatus?.error && (
+              <Button
+                onClick={() => startDaemonMutation.mutate()}
+                disabled={startDaemonMutation.isPending}
+                variant="outline"
+                className="w-full"
+                data-testid="button-start-daemon"
+              >
+                {startDaemonMutation.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Starting daemon...
+                  </>
+                ) : (
+                  <>
+                    <Power className="mr-2 h-4 w-4" />
+                    Start Tailscale Daemon
+                  </>
+                )}
+              </Button>
             )}
           </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {tailscaleStatus?.error && !tailscaleStatus.connected && (
-            <div className="p-4 rounded-lg bg-warning/5 border border-warning/20">
-              <p className="text-sm font-medium text-warning mb-1">Tailscale Not Available</p>
-              <p className="text-xs text-muted-foreground mb-2">{tailscaleStatus.error}</p>
-              <p className="text-xs text-muted-foreground">
-                Tailscale requires the <code className="text-xs bg-muted px-1 rounded">tailscaled</code> daemon service to be running. 
-                This may not be available in containerized environments. You can still scan routers on your local network without Tailscale.
-              </p>
-            </div>
-          )}
-          
-          {tailscaleStatus?.connected && tailscaleStatus.ip && (
-            <div className="p-4 rounded-lg bg-success/5 border border-success/20">
-              <p className="text-sm text-muted-foreground">Tailscale IP</p>
-              <p className="font-mono text-sm font-medium mt-1">{tailscaleStatus.ip}</p>
-            </div>
-          )}
-          
-          <Button
-            onClick={() => connectTailscaleMutation.mutate()}
-            disabled={connectTailscaleMutation.isPending || tailscaleStatus?.connected || !!tailscaleStatus?.error}
-            data-testid="button-connect-tailscale"
-          >
-            {connectTailscaleMutation.isPending ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Connecting...
-              </>
-            ) : tailscaleStatus?.connected ? (
-              <>
-                <CheckCircle2 className="mr-2 h-4 w-4" />
-                Connected
-              </>
-            ) : (
-              <>
-                <Shield className="mr-2 h-4 w-4" />
-                Connect to Tailscale
-              </>
-            )}
-          </Button>
-          
-          {!tailscaleStatus?.connected && !tailscaleStatus?.error && (
-            <p className="text-xs text-muted-foreground">
-              Tailscale provides secure VPN access to your network infrastructure
-            </p>
+
+          {/* Connection Section - Only shown when daemon is running */}
+          {daemonStatus?.running && (
+            <>
+              <div className="border-t pt-6 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-sm font-medium flex items-center gap-2">
+                      <Wifi className="h-4 w-4" />
+                      Network Connection
+                    </h4>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Connect to your Tailscale network
+                    </p>
+                  </div>
+                  {tailscaleStatus?.connected ? (
+                    <Badge variant="outline" className="bg-success/10 text-success border-success/20">
+                      <CheckCircle2 className="h-3 w-3 mr-1" />
+                      Connected
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="bg-muted text-muted-foreground border-muted-foreground/20">
+                      <XCircle className="h-3 w-3 mr-1" />
+                      Disconnected
+                    </Badge>
+                  )}
+                </div>
+
+                {tailscaleStatus?.connected && tailscaleStatus.ip && (
+                  <div className="p-4 rounded-lg bg-success/5 border border-success/20">
+                    <p className="text-sm text-muted-foreground">Tailscale IP</p>
+                    <p className="font-mono text-sm font-medium mt-1">{tailscaleStatus.ip}</p>
+                  </div>
+                )}
+
+                {!tailscaleStatus?.connected && (
+                  <div className="space-y-3">
+                    <div className="p-3 rounded-lg bg-muted/50 border border-muted">
+                      <p className="text-xs text-muted-foreground">
+                        You can use the auth key configured in Replit Secrets, or enter a new one below to override it.
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="authKey">Auth Key (Optional)</Label>
+                      <Input
+                        id="authKey"
+                        type="password"
+                        placeholder="Leave blank to use configured key, or enter tskey-auth-xxxxx"
+                        value={authKey}
+                        onChange={(e) => setAuthKey(e.target.value)}
+                        disabled={connectTailscaleMutation.isPending}
+                        data-testid="input-tailscale-authkey"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Generate a new key at{" "}
+                        <a
+                          href="https://login.tailscale.com/admin/settings/keys"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary hover:underline"
+                        >
+                          login.tailscale.com/admin/settings/keys
+                        </a>
+                      </p>
+                    </div>
+
+                    <Button
+                      onClick={handleConnect}
+                      disabled={connectTailscaleMutation.isPending}
+                      className="w-full"
+                      data-testid="button-connect-network"
+                    >
+                      {connectTailscaleMutation.isPending ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Connecting...
+                        </>
+                      ) : (
+                        <>
+                          <Wifi className="mr-2 h-4 w-4" />
+                          Connect to Network
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
@@ -238,8 +357,16 @@ export default function SettingsPage() {
             </Badge>
           </div>
           <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-            <span className="text-sm">Tailscale Auth Key</span>
-            <Badge variant="outline">Configured</Badge>
+            <span className="text-sm">Tailscale Daemon</span>
+            <Badge variant="outline">
+              {daemonStatus?.running ? "Running" : "Stopped"}
+            </Badge>
+          </div>
+          <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+            <span className="text-sm">Tailscale Network</span>
+            <Badge variant="outline">
+              {tailscaleStatus?.connected ? "Connected" : "Disconnected"}
+            </Badge>
           </div>
         </CardContent>
       </Card>

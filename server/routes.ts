@@ -327,6 +327,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/tailscale/daemon/status", async (req: Request, res: Response) => {
+    try {
+      const status = await tailscale.getDaemonStatus();
+      res.json(status);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/tailscale/daemon/start", async (req: Request, res: Response) => {
+    try {
+      const result = await tailscale.startDaemon();
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.get("/api/tailscale/status", async (req: Request, res: Response) => {
     try {
       const status = await tailscale.getStatus();
@@ -338,7 +356,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/tailscale/connect", async (req: Request, res: Response) => {
     try {
-      await tailscale.connect();
+      const { authKey } = req.body;
+      await tailscale.connect(authKey);
       const status = await tailscale.getStatus();
       
       await storage.updateSettings({

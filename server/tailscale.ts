@@ -65,21 +65,22 @@ export class TailscaleManager {
     throw new Error("Tailscale daemon failed to start after 10 seconds");
   }
 
-  async connect(): Promise<void> {
+  async connect(authKey?: string): Promise<void> {
     const isInstalled = await this.checkTailscaleInstalled();
     if (!isInstalled) {
       throw new Error("Tailscale is not installed on this system. Please install Tailscale to use VPN connectivity.");
     }
 
-    if (!this.authKey) {
-      throw new Error("Tailscale auth key is not configured. Please set TAILSCALE_AUTH_KEY environment variable.");
+    const keyToUse = authKey || this.authKey;
+    if (!keyToUse) {
+      throw new Error("Tailscale auth key is required. Please provide an auth key or set TAILSCALE_AUTH_KEY environment variable.");
     }
 
     await this.ensureDaemonRunning();
 
     try {
       const { stdout, stderr } = await execAsync(
-        `tailscale --socket=${this.socketPath} up --authkey=${this.authKey} --accept-routes --timeout=30s`
+        `tailscale --socket=${this.socketPath} up --authkey=${keyToUse} --accept-routes --timeout=30s`
       );
       
       if (stderr && stderr.includes("error")) {
@@ -96,7 +97,7 @@ export class TailscaleManager {
       }
       
       if (error.message.includes("invalid key") || error.message.includes("unable to validate API key")) {
-        throw new Error("Invalid or expired Tailscale auth key. Please generate a new auth key at https://login.tailscale.com/admin/settings/keys and update the TAILSCALE_AUTH_KEY secret in Replit.");
+        throw new Error("Invalid or expired Tailscale auth key. Please generate a new auth key at https://login.tailscale.com/admin/settings/keys");
       }
       
       if (error.message.includes("timeout waiting")) {
@@ -107,16 +108,57 @@ export class TailscaleManager {
     }
   }
 
-  async getStatus(): Promise<{ connected: boolean; ip?: string; error?: string }> {
+  async getDaemonStatus(): Promise<{ running: boolean; error?: string }> {
     const isInstalled = await this.checkTailscaleInstalled();
     if (!isInstalled) {
       return { 
-        connected: false, 
+        running: false, 
         error: "Tailscale is not installed" 
       };
     }
 
-    await this.ensureDaemonRunning();
+    const isResponsive = await this.isDaemonResponsive();
+    return { running: isResponsive };
+  }
+
+  async startDaemon(): Promise<{ running: boolean; error?: string }> {
+    const isInstalled = await this.checkTailscaleInstalled();
+    if (!isInstalled) {
+      return { 
+        running: false, 
+        error: "Tailscale is not installed" 
+      };
+    }
+
+    try {
+      await this.ensureDaemonRunning();
+      return { running: true };
+    } catch (error: any) {
+      return { 
+        running: false, 
+        error: error.message 
+      };
+    }
+  }
+
+  async getStatus(): Promise<{ connected: boolean; daemonRunning: boolean; ip?: string; error?: string }> {
+    const isInstalled = await this.checkTailscaleInstalled();
+    if (!isInstalled) {
+      return { 
+        connected: false,
+        daemonRunning: false,
+        error: "Tailscale is not installed" 
+      };
+    }
+
+    const daemonRunning = await this.isDaemonResponsive();
+    
+    if (!daemonRunning) {
+      return {
+        connected: false,
+        daemonRunning: false,
+      };
+    }
 
     try {
       const { stdout } = await execAsync(`tailscale --socket=${this.socketPath} status --json`);
@@ -126,15 +168,20 @@ export class TailscaleManager {
       if (self && self.Online) {
         return {
           connected: true,
+          daemonRunning: true,
           ip: self.TailscaleIPs?.[0] || undefined,
         };
       }
       
-      return { connected: false };
+      return { 
+        connected: false,
+        daemonRunning: true,
+      };
     } catch (error: any) {
       console.error("Tailscale status check error:", error);
       return { 
         connected: false,
+        daemonRunning: true,
         error: error.message 
       };
     }
