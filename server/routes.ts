@@ -51,6 +51,91 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.put("/api/routers/:id", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+      
+      const updated = await storage.updateRouter(id, updates);
+      
+      if (!updated) {
+        return res.status(404).json({ error: "Router not found" });
+      }
+      
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/routers/:id", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const success = await storage.deleteRouter(id);
+      
+      if (!success) {
+        return res.status(404).json({ error: "Router not found" });
+      }
+      
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/routers/:id/rescan", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const router = await storage.getRouter(id);
+      
+      if (!router) {
+        return res.status(404).json({ error: "Router not found" });
+      }
+
+      const settings = await storage.getSettings();
+      const username = settings?.mikrotikUsername || defaultUsername;
+      const password = settings?.mikrotikPassword || defaultPassword;
+      
+      const mikrotikClient = new MikrotikClient(username, password);
+      
+      try {
+        const isOnline = await mikrotikClient.testConnection(router.ip);
+        
+        if (isOnline) {
+          const systemInfo = await mikrotikClient.getSystemInfo(router.ip);
+          const ospfNeighbors = await mikrotikClient.getOSPFNeighbors(router.ip);
+          
+          const updated = await storage.updateRouter(id, {
+            status: "online",
+            identity: systemInfo.identity,
+            version: systemInfo.version,
+            model: systemInfo.model,
+            ospfNeighbors,
+            lastSeen: new Date(),
+          });
+          
+          res.json(updated);
+        } else {
+          const updated = await storage.updateRouter(id, {
+            status: "offline",
+            lastSeen: new Date(),
+          });
+          
+          res.json(updated);
+        }
+      } catch (error: any) {
+        const updated = await storage.updateRouter(id, {
+          status: "offline",
+          lastSeen: new Date(),
+        });
+        
+        res.json(updated);
+      }
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.get("/api/scans", async (req: Request, res: Response) => {
     try {
       const scans = await storage.getAllScans();
