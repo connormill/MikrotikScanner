@@ -2,7 +2,7 @@
 
 ## Overview
 
-MikroNet is a network administration tool for managing and monitoring Mikrotik router networks with OSPF topology visualization. The application provides automated network scanning, real-time status monitoring, asymmetric route detection, and interactive topology diagrams. It enables network administrators to discover routers, track OSPF neighbor relationships, and identify routing asymmetries across their network infrastructure.
+MikroNet is a network administration tool for managing and monitoring Mikrotik router networks with OSPF topology visualization. The application provides automated network scanning, real-time status monitoring, asymmetric route detection, and interactive topology diagrams. It enables network administrators to discover routers, track OSPF neighbor relationships, identify routing asymmetries, and manage individual routers with edit, delete, and rescan capabilities.
 
 ## User Preferences
 
@@ -126,3 +126,26 @@ Preferred communication style: Simple, everyday language.
 - TypeScript for type safety across full stack
 - ESBuild for production bundling
 - PostCSS with Autoprefixer for CSS processing
+
+## Recent Changes
+
+**Router Management Features Added (2025-11-08)**
+- Added edit router functionality - Update router hostname and identity through dialog form
+- Added delete router functionality - Remove routers with confirmation dialog
+- Added single router rescan - Refresh individual router information and OSPF neighbors
+- Improved Tailscale error messaging - Clearer explanation when daemon is not running
+- Security: Implemented Zod validation to whitelist only editable fields (hostname/identity)
+
+**Database Persistence Added (2025-11-08)**
+- Migrated from in-memory storage to PostgreSQL database
+- Implemented DatabaseStorage class with full CRUD operations
+- All scan history and router configurations now persist across restarts
+- Improved Tailscale error handling and user feedback
+
+**Initial Implementation (2025-11-08)**
+- Built complete MikroNet application for Mikrotik network management
+- Implemented OSPF neighbor analysis and asymmetric route detection
+- Created interactive topology visualization with ReactFlow
+- Added Tailscale VPN integration for secure network access
+- Designed professional UI with Inter and JetBrains Mono fonts
+- Implemented real-time scan progress tracking with Server-Sent Events
