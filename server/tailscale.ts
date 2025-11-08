@@ -71,10 +71,13 @@ export class TailscaleManager {
       throw new Error("Tailscale is not installed on this system. Please install Tailscale to use VPN connectivity.");
     }
 
-    const keyToUse = authKey || this.authKey;
+    const keyToUse = (authKey || this.authKey)?.trim();
     if (!keyToUse) {
       throw new Error("Tailscale auth key is required. Please provide an auth key or set TAILSCALE_AUTH_KEY environment variable.");
     }
+
+    console.log(`Attempting to connect with key starting with: ${keyToUse.substring(0, 10)}...`);
+    console.log(`Key length: ${keyToUse.length}`);
 
     await this.ensureDaemonRunning();
 
