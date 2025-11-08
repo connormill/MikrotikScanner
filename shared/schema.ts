@@ -120,3 +120,24 @@ export type User = {
 };
 
 export type InsertUser = Omit<User, "id">;
+
+export interface IStorage {
+  getRouter(id: string): Promise<Router | undefined>;
+  getRouterByIp(ip: string): Promise<Router | undefined>;
+  getAllRouters(): Promise<Router[]>;
+  createRouter(router: InsertRouter): Promise<Router>;
+  updateRouter(id: string, router: Partial<Router>): Promise<Router | undefined>;
+  deleteRouter(id: string): Promise<boolean>;
+
+  getScan(id: string): Promise<Scan | undefined>;
+  getAllScans(): Promise<Scan[]>;
+  getRecentScans(limit?: number): Promise<Scan[]>;
+  createScan(scan: InsertScan): Promise<Scan>;
+  updateScan(id: string, scan: Partial<Scan>): Promise<Scan | undefined>;
+
+  getSettings(): Promise<Settings | undefined>;
+  updateSettings(settings: Partial<InsertSettings>): Promise<Settings>;
+
+  getTopologyData(): Promise<TopologyData>;
+  getAsymmetricRoutes(): Promise<AsymmetricRoute[]>;
+}

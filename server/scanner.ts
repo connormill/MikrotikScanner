@@ -1,7 +1,6 @@
 import CIDR from "ip-cidr";
 import { MikrotikClient } from "./mikrotik";
-import type { Router, OSPFNeighbor } from "@shared/schema";
-import { storage } from "./storage";
+import type { Router, OSPFNeighbor, IStorage } from "@shared/schema";
 
 export interface ScanProgress {
   progress: number;
@@ -13,9 +12,11 @@ export interface ScanProgress {
 
 export class NetworkScanner {
   private mikrotikClient: MikrotikClient;
+  private storage: any;
 
-  constructor(username: string, password: string) {
+  constructor(username: string, password: string, storage: any) {
     this.mikrotikClient = new MikrotikClient(username, password);
+    this.storage = storage;
   }
 
   async scanSubnet(
@@ -47,10 +48,10 @@ export class NetworkScanner {
           const systemInfo = await this.mikrotikClient.getSystemInfo(ip);
           const ospfNeighbors = await this.mikrotikClient.getOSPFNeighbors(ip);
           
-          const existingRouter = await storage.getRouterByIp(ip);
+          const existingRouter = await this.storage.getRouterByIp(ip);
           
           if (existingRouter) {
-            const updated = await storage.updateRouter(existingRouter.id, {
+            const updated = await this.storage.updateRouter(existingRouter.id, {
               status: "online",
               identity: systemInfo.identity,
               version: systemInfo.version,
@@ -60,7 +61,7 @@ export class NetworkScanner {
             });
             if (updated) routers.push(updated);
           } else {
-            const router = await storage.createRouter({
+            const router = await this.storage.createRouter({
               ip,
               hostname: systemInfo.identity,
               identity: systemInfo.identity,

@@ -1,6 +1,6 @@
-import { storage } from "./storage";
+import type { IStorage } from "./storage";
 
-export async function initializeDemoData() {
+export async function initializeDemoData(storage: IStorage) {
   const demoRouters = [
     {
       ip: "192.168.1.1",
