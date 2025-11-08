@@ -59,25 +59,25 @@ Preferred communication style: Simple, everyday language.
 
 ### Data Storage Solutions
 
-**Current Implementation (Development)**
-- In-memory Map-based storage for routers, scans, and settings
-- Demo data initialization in development environment
-- No persistence between server restarts
+**Current Implementation (PostgreSQL)**
+- PostgreSQL database with Drizzle ORM
+- Database connection via `@neondatabase/serverless`
+- Automated schema migrations with `drizzle-kit`
+- Demo data initialization on first run in development
 
-**Production-Ready Schema (PostgreSQL)**
-- Drizzle ORM schema defined with three main tables:
-  - `routers`: Device information, status, and OSPF neighbor data (JSONB)
-  - `scans`: Network scan history with results and metrics
-  - `settings`: Global configuration including credentials and Tailscale status
+**Database Schema**
+- `routers`: Device information, status, and OSPF neighbor data (JSONB)
+- `scans`: Network scan history with results and asymmetry detection
+- `settings`: Global configuration including Mikrotik credentials and Tailscale status
 - UUID primary keys with PostgreSQL `gen_random_uuid()`
 - JSONB columns for flexible nested data (OSPF neighbors, scan results)
 - Timestamp tracking for last seen and scan completion
 
-**Migration Path**
-- Database schema ready in `shared/schema.ts`
-- Drizzle-kit configured for PostgreSQL migrations
-- Connection via `@neondatabase/serverless` for serverless PostgreSQL
-- Switch from `MemStorage` to Drizzle implementation needed for production
+**Storage Implementation**
+- `DatabaseStorage` class implements `IStorage` interface
+- All API routes use database persistence
+- Scan history and router configurations persist across restarts
+- Automatic demo data seeding in development if database is empty
 
 ### Authentication & Authorization
 
