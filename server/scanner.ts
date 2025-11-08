@@ -27,6 +27,13 @@ export class NetworkScanner {
       const cidr = new CIDR(subnet);
       const ips = cidr.toArray();
       const totalIps = ips.length;
+      
+      // Prevent scanning huge subnets
+      if (totalIps > 1024) {
+        throw new Error(`Subnet too large: ${totalIps} IPs. Please use a subnet with /22 or smaller (max 1024 IPs). For 10.0.0.0/8 networks, scan specific subnets like 10.0.1.0/24 instead.`);
+      }
+      
+      console.log(`Scanning subnet ${subnet} with ${totalIps} IPs`);
       const routers: Router[] = [];
       
       for (let i = 0; i < ips.length; i++) {
