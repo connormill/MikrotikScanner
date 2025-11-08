@@ -115,7 +115,11 @@ export default function SettingsPage() {
           {tailscaleStatus?.error && !tailscaleStatus.connected && (
             <div className="p-4 rounded-lg bg-warning/5 border border-warning/20">
               <p className="text-sm font-medium text-warning mb-1">Tailscale Not Available</p>
-              <p className="text-xs text-muted-foreground">{tailscaleStatus.error}</p>
+              <p className="text-xs text-muted-foreground mb-2">{tailscaleStatus.error}</p>
+              <p className="text-xs text-muted-foreground">
+                Tailscale requires the <code className="text-xs bg-muted px-1 rounded">tailscaled</code> daemon service to be running. 
+                This may not be available in containerized environments. You can still scan routers on your local network without Tailscale.
+              </p>
             </div>
           )}
           
