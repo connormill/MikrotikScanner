@@ -58,11 +58,15 @@ export class MemStorage implements IStorage {
   async createRouter(insertRouter: InsertRouter): Promise<Router> {
     const id = randomUUID();
     const router: Router = {
-      ...insertRouter,
       id,
-      lastSeen: new Date(),
+      ip: insertRouter.ip,
+      hostname: insertRouter.hostname || null,
+      identity: insertRouter.identity || null,
+      version: insertRouter.version || null,
+      model: insertRouter.model || null,
       status: insertRouter.status || "unknown",
-      ospfNeighbors: insertRouter.ospfNeighbors || [],
+      lastSeen: new Date(),
+      ospfNeighbors: (insertRouter.ospfNeighbors || []) as any,
     };
     this.routers.set(id, router);
     return router;
@@ -87,7 +91,7 @@ export class MemStorage implements IStorage {
 
   async getAllScans(): Promise<Scan[]> {
     return Array.from(this.scans.values()).sort(
-      (a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()
+      (a, b) => (new Date(b.startedAt || 0).getTime()) - (new Date(a.startedAt || 0).getTime())
     );
   }
 
@@ -99,8 +103,9 @@ export class MemStorage implements IStorage {
   async createScan(insertScan: InsertScan): Promise<Scan> {
     const id = randomUUID();
     const scan: Scan = {
-      ...insertScan,
       id,
+      subnet: insertScan.subnet,
+      status: insertScan.status || "pending",
       startedAt: new Date(),
       completedAt: null,
       routersFound: 0,
@@ -128,16 +133,15 @@ export class MemStorage implements IStorage {
     if (!this.settings) {
       this.settings = {
         id: randomUUID(),
-        tailscaleStatus: "disconnected",
-        mikrotikUsername: null,
-        mikrotikPassword: null,
-        defaultSubnets: [],
-        ...updates,
+        tailscaleStatus: updates.tailscaleStatus || "disconnected",
+        mikrotikUsername: updates.mikrotikUsername || null,
+        mikrotikPassword: updates.mikrotikPassword || null,
+        defaultSubnets: (updates.defaultSubnets as any) || [],
       };
     } else {
-      this.settings = { ...this.settings, ...updates };
+      this.settings = { ...this.settings, ...updates as any };
     }
-    return this.settings;
+    return this.settings!;
   }
 
   async getTopologyData(): Promise<TopologyData> {
@@ -145,8 +149,8 @@ export class MemStorage implements IStorage {
     const nodes = routers.map((router) => ({
       id: router.id,
       ip: router.ip,
-      hostname: router.hostname,
-      identity: router.identity,
+      hostname: router.hostname || undefined,
+      identity: router.identity || undefined,
       status: router.status,
     }));
 
