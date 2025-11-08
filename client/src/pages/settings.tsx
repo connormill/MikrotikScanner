@@ -19,7 +19,7 @@ export default function SettingsPage() {
     queryKey: ["/api/settings"],
   });
 
-  const { data: tailscaleStatus } = useQuery<{ connected: boolean; ip?: string }>({
+  const { data: tailscaleStatus } = useQuery<{ connected: boolean; ip?: string; error?: string }>({
     queryKey: ["/api/tailscale/status"],
     refetchInterval: 10000,
   });
@@ -112,6 +112,13 @@ export default function SettingsPage() {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
+          {tailscaleStatus?.error && !tailscaleStatus.connected && (
+            <div className="p-4 rounded-lg bg-warning/5 border border-warning/20">
+              <p className="text-sm font-medium text-warning mb-1">Tailscale Not Available</p>
+              <p className="text-xs text-muted-foreground">{tailscaleStatus.error}</p>
+            </div>
+          )}
+          
           {tailscaleStatus?.connected && tailscaleStatus.ip && (
             <div className="p-4 rounded-lg bg-success/5 border border-success/20">
               <p className="text-sm text-muted-foreground">Tailscale IP</p>
@@ -121,7 +128,7 @@ export default function SettingsPage() {
           
           <Button
             onClick={() => connectTailscaleMutation.mutate()}
-            disabled={connectTailscaleMutation.isPending || tailscaleStatus?.connected}
+            disabled={connectTailscaleMutation.isPending || tailscaleStatus?.connected || !!tailscaleStatus?.error}
             data-testid="button-connect-tailscale"
           >
             {connectTailscaleMutation.isPending ? (
@@ -141,6 +148,12 @@ export default function SettingsPage() {
               </>
             )}
           </Button>
+          
+          {!tailscaleStatus?.connected && !tailscaleStatus?.error && (
+            <p className="text-xs text-muted-foreground">
+              Tailscale provides secure VPN access to your network infrastructure
+            </p>
+          )}
         </CardContent>
       </Card>
 
