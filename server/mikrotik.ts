@@ -81,8 +81,10 @@ export class MikrotikClient {
     try {
       conn = await this.connect(host);
       await conn.write("/system/identity/print");
+      console.log(`✓ Connection successful: ${host}`);
       return true;
     } catch (error) {
+      console.log(`✗ Connection failed: ${host}`);
       return false;
     } finally {
       if (conn) {
