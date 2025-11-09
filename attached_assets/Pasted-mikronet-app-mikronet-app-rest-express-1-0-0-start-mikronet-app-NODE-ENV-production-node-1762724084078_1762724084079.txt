@@ -1,0 +1,80 @@
+mikronet-app |
+mikronet-app | > rest-express@1.0.0 start
+mikronet-app | > NODE_ENV=production node dist/index.js
+mikronet-app |
+mikronet-app | node:internal/modules/esm/resolve:873
+mikronet-app |   throw new ERR_MODULE_NOT_FOUND(packageName, fileURLToPath(base), null);
+mikronet-app |         ^
+mikronet-app |
+mikronet-app | Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'vite' imported from /app/dist/index.js
+mikronet-app |     at packageResolve (node:internal/modules/esm/resolve:873:9)
+mikronet-app |     at moduleResolve (node:internal/modules/esm/resolve:946:18)
+mikronet-app |     at defaultResolve (node:internal/modules/esm/resolve:1188:11)
+mikronet-app |     at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:708:12)
+mikronet-app |     at #cachedDefaultResolve (node:internal/modules/esm/loader:657:25)
+mikronet-app |     at ModuleLoader.resolve (node:internal/modules/esm/loader:640:38)
+mikronet-app |     at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:264:38)
+mikronet-app |     at ModuleJob._link (node:internal/modules/esm/module_job:168:49) {
+mikronet-app |   code: 'ERR_MODULE_NOT_FOUND'
+mikronet-app | }
+mikronet-app |
+mikronet-app | Node.js v20.19.5
+mikronet-app | npm notice
+mikronet-app | npm notice New major version of npm available! 10.8.2 -> 11.6.2
+mikronet-app | npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.6.2
+mikronet-app | npm notice To update run: npm install -g npm@11.6.2
+mikronet-app | npm notice
+mikronet-app |
+mikronet-app | > rest-express@1.0.0 start
+mikronet-app | > NODE_ENV=production node dist/index.js
+mikronet-app |
+mikronet-app | node:internal/modules/esm/resolve:873
+mikronet-app |   throw new ERR_MODULE_NOT_FOUND(packageName, fileURLToPath(base), null);
+mikronet-app |         ^
+mikronet-app |
+mikronet-app | Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'vite' imported from /app/dist/index.js
+mikronet-app |     at packageResolve (node:internal/modules/esm/resolve:873:9)
+mikronet-app |     at moduleResolve (node:internal/modules/esm/resolve:946:18)
+mikronet-app |     at defaultResolve (node:internal/modules/esm/resolve:1188:11)
+mikronet-app |     at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:708:12)
+mikronet-app |     at #cachedDefaultResolve (node:internal/modules/esm/loader:657:25)
+mikronet-app |     at ModuleLoader.resolve (node:internal/modules/esm/loader:640:38)
+mikronet-app |     at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:264:38)
+mikronet-app |     at ModuleJob._link (node:internal/modules/esm/module_job:168:49) {
+mikronet-app |   code: 'ERR_MODULE_NOT_FOUND'
+mikronet-app | }
+mikronet-app |
+mikronet-app | Node.js v20.19.5
+mikronet-app | npm notice
+mikronet-app | npm notice New major version of npm available! 10.8.2 -> 11.6.2
+mikronet-app | npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.6.2
+mikronet-app | npm notice To update run: npm install -g npm@11.6.2
+mikronet-app | npm notice
+mikronet-app exited with code 1
+mikronet-app |
+mikronet-app | > rest-express@1.0.0 start
+mikronet-app | > NODE_ENV=production node dist/index.js
+mikronet-app |
+mikronet-app | node:internal/modules/esm/resolve:873
+mikronet-app |   throw new ERR_MODULE_NOT_FOUND(packageName, fileURLToPath(base), null);
+mikronet-app |         ^
+mikronet-app |
+mikronet-app | Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'vite' imported from /app/dist/index.js
+mikronet-app |     at packageResolve (node:internal/modules/esm/resolve:873:9)
+mikronet-app |     at moduleResolve (node:internal/modules/esm/resolve:946:18)
+mikronet-app |     at defaultResolve (node:internal/modules/esm/resolve:1188:11)
+mikronet-app |     at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:708:12)
+mikronet-app |     at #cachedDefaultResolve (node:internal/modules/esm/loader:657:25)
+mikronet-app |     at ModuleLoader.resolve (node:internal/modules/esm/loader:640:38)
+mikronet-app |     at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:264:38)
+mikronet-app |     at ModuleJob._link (node:internal/modules/esm/module_job:168:49) {
+mikronet-app |   code: 'ERR_MODULE_NOT_FOUND'
+mikronet-app | }
+mikronet-app |
+mikronet-app | Node.js v20.19.5
+mikronet-app | npm notice
+mikronet-app | npm notice New major version of npm available! 10.8.2 -> 11.6.2
+mikronet-app | npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.6.2
+mikronet-app | npm notice To update run: npm install -g npm@11.6.2
+mikronet-app | npm notice
+mikronet-app exited with code 1
