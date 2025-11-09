@@ -31,6 +31,10 @@ export const settings = pgTable("settings", {
   tailscaleStatus: text("tailscale_status").default("disconnected"),
   mikrotikUsername: text("mikrotik_username"),
   mikrotikPassword: text("mikrotik_password"),
+  sshTunnelHost: text("ssh_tunnel_host"),
+  sshTunnelUsername: text("ssh_tunnel_username"),
+  sshTunnelPassword: text("ssh_tunnel_password"),
+  sshTunnelEnabled: boolean("ssh_tunnel_enabled").default(false),
   defaultSubnets: jsonb("default_subnets").$type<string[]>().default([]),
 });
 
