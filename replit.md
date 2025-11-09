@@ -54,9 +54,8 @@ Preferred communication style: Simple, everyday language.
 
 **External System Integration**
 - RouterOS API client (`node-routeros`) for Mikrotik device communication
-- SSH tunnel (`ssh2`) for port forwarding through bastion host to access routers
-- Tailscale management via shell command execution for VPN connectivity (alternative to SSH tunnel)
 - Network scanner using CIDR subnet parsing for device discovery
+- Direct network connectivity required to MikroTik routers on port 8728
 
 ### Data Storage Solutions
 
@@ -69,7 +68,7 @@ Preferred communication style: Simple, everyday language.
 **Database Schema**
 - `routers`: Device information, status, and OSPF neighbor data (JSONB)
 - `scans`: Network scan history with results and asymmetry detection
-- `settings`: Global configuration including Mikrotik credentials, SSH tunnel credentials, and Tailscale status
+- `settings`: Global configuration for MikroTik credentials (username/password)
 - UUID primary keys with PostgreSQL `gen_random_uuid()`
 - JSONB columns for flexible nested data (OSPF neighbors, scan results)
 - Timestamp tracking for last seen and scan completion
@@ -85,15 +84,14 @@ Preferred communication style: Simple, everyday language.
 **Current State**
 - No authentication system implemented
 - Single-user application assumed
-- Mikrotik credentials stored in settings (username/password)
-- Tailscale auth key via environment variable
+- MikroTik credentials stored in settings (username/password)
 
 **Security Considerations**
 - Credentials stored in plaintext (should be encrypted for production)
-- SSH tunnel credentials, Mikrotik passwords stored in database
+- MikroTik passwords stored in database
 - No session management or user access control
-- Mikrotik API connections use basic authentication
-- Environment variables for sensitive configuration (Tailscale auth key)
+- MikroTik API connections use basic authentication
+- Environment variables for sensitive configuration
 
 ### External Dependencies
 
@@ -104,22 +102,11 @@ Preferred communication style: Simple, everyday language.
 - Queries OSPF neighbor tables for topology discovery
 - 5-second connection timeout for unreachable devices
 
-**SSH Tunnel (Primary Network Access Method)**
-- `ssh2` library for SSH tunnel creation and port forwarding
-- Connects to bastion host (e.g., 100.74.182.78) with SSH credentials
-- Port forwarding for MikroTik API connections (port 8728) through tunnel
-- Custom `SSHTunnelError` class for fatal error propagation
-- Enables access to private network routers from Replit environment
-- Required because Replit userspace networking doesn't route application traffic
-- All scan and rescan operations use SSH tunnel when enabled
-
-**Tailscale VPN (Alternative Network Access Method)**
-- Shell command execution for Tailscale CLI operations
-- `tailscale up` for connection with auth key and route acceptance
-- `tailscale status --json` for connection verification and IP retrieval
-- `tailscale down` for disconnection
-- Enables secure access to routers across networks
-- Note: Limited effectiveness in Replit due to userspace networking constraints
+**Network Requirements**
+- Direct Layer 3 network connectivity to MikroTik routers required
+- Application must be deployed on same network or have routing to router subnet
+- MikroTik API port 8728 must be accessible from application host
+- No VPN or SSH tunneling required when deployed locally
 
 **Network Scanning**
 - `ip-cidr` library for CIDR subnet parsing and IP enumeration
@@ -139,18 +126,31 @@ Preferred communication style: Simple, everyday language.
 - ESBuild for production bundling
 - PostCSS with Autoprefixer for CSS processing
 
+### Deployment
+
+**Docker Containerization**
+- Multi-stage Docker build for optimized production images
+- Docker Compose orchestration with PostgreSQL database
+- Health checks for application and database containers
+- Volume persistence for database data
+- Environment variable configuration for credentials
+
+**Deployment Options**
+- Docker Compose (recommended): Complete stack with database
+- Manual deployment: Node.js application with external PostgreSQL
+- Reverse proxy support: nginx, Caddy, Traefik compatible
+- See DEPLOYMENT.md for complete deployment instructions
+
 ## Recent Changes
 
-**SSH Tunnel Implementation (2025-11-09)**
-- Implemented SSH tunnel infrastructure for accessing MikroTik routers through bastion host
-- Added SSHTunnelManager class with port forwarding capabilities using ssh2 library
-- Updated MikrotikClient and NetworkScanner to accept optional SSH tunnel for connections
-- Created custom SSHTunnelError class for proper fatal error propagation
-- Added SSH tunnel API endpoints (connect, disconnect, status, settings)
-- Implemented Settings UI with SSH tunnel configuration section
-- Fixed error handling to differentiate tunnel failures from router offline states
-- All scan and rescan operations now properly use SSH tunnel when enabled
-- SSH tunnel solves Replit userspace networking limitation for accessing private network routers
+**Deployment Simplification (2025-11-09)**
+- Removed SSH tunnel and Tailscale functionality for local deployment
+- Simplified for direct network connectivity to MikroTik routers
+- Added Docker containerization support (Dockerfile, docker-compose.yml)
+- Created comprehensive deployment documentation (DEPLOYMENT.md)
+- Simplified Settings UI to only MikroTik credentials configuration
+- Updated database schema to remove unused SSH/Tailscale fields
+- Application now designed for deployment on same network as routers
 
 **Router Management Features Added (2025-11-08)**
 - Added edit router functionality - Update router hostname and identity through dialog form

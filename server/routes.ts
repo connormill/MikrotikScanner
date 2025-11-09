@@ -1,9 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { DatabaseStorage } from "./db-storage";
-import { MikrotikClient, SSHTunnelError } from "./mikrotik";
-import { TailscaleManager } from "./tailscale";
-import { SSHTunnelManager } from "./ssh-tunnel";
+import { MikrotikClient } from "./mikrotik";
 import { NetworkScanner, type ScanProgress } from "./scanner";
 import { insertScanSchema, updateRouterSchema } from "@shared/schema";
 import { z } from "zod";
@@ -13,12 +11,8 @@ const storage = new DatabaseStorage();
 const scanProgressClients = new Map<string, Response[]>();
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  const tailscaleAuthKey = process.env.TAILSCALE_AUTH_KEY || "";
   const defaultUsername = process.env.MIKROTIK_USERNAME || "admin";
   const defaultPassword = process.env.MIKROTIK_PASSWORD || "";
-
-  const tailscale = new TailscaleManager(tailscaleAuthKey);
-  const sshTunnel = new SSHTunnelManager();
 
   await storage.updateSettings({
     mikrotikUsername: defaultUsername,
@@ -101,61 +95,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const username = settings?.mikrotikUsername || defaultUsername;
       const password = settings?.mikrotikPassword || defaultPassword;
       
-      // Connect SSH tunnel if enabled - this is REQUIRED for Replit environment
-      if (settings?.sshTunnelEnabled) {
-        if (!settings?.sshTunnelHost || !settings?.sshTunnelUsername || !settings?.sshTunnelPassword) {
-          return res.status(400).json({ error: "SSH tunnel is enabled but credentials are not configured" });
-        }
-        
-        if (!sshTunnel.getStatus().connected) {
-          try {
-            await sshTunnel.connect(settings.sshTunnelHost, settings.sshTunnelUsername, settings.sshTunnelPassword);
-          } catch (error: any) {
-            return res.status(500).json({ 
-              error: "SSH tunnel connection failed", 
-              details: error.message 
-            });
-          }
-        }
-      }
+      const mikrotikClient = new MikrotikClient(username, password);
       
-      const mikrotikClient = new MikrotikClient(username, password, sshTunnel);
+      const isOnline = await mikrotikClient.testConnection(router.ip);
       
-      try {
-        const isOnline = await mikrotikClient.testConnection(router.ip);
+      if (isOnline) {
+        const systemInfo = await mikrotikClient.getSystemInfo(router.ip);
+        const ospfNeighbors = await mikrotikClient.getOSPFNeighbors(router.ip);
         
-        if (isOnline) {
-          const systemInfo = await mikrotikClient.getSystemInfo(router.ip);
-          const ospfNeighbors = await mikrotikClient.getOSPFNeighbors(router.ip);
-          
-          const updated = await storage.updateRouter(id, {
-            status: "online",
-            identity: systemInfo.identity,
-            version: systemInfo.version,
-            model: systemInfo.model,
-            ospfNeighbors,
-            lastSeen: new Date(),
-          });
-          
-          res.json(updated);
-        } else {
-          const updated = await storage.updateRouter(id, {
-            status: "offline",
-            lastSeen: new Date(),
-          });
-          
-          res.json(updated);
-        }
-      } catch (error: any) {
-        // SSH tunnel errors are fatal - don't mark router as offline
-        if (error instanceof SSHTunnelError) {
-          return res.status(500).json({ 
-            error: "SSH tunnel failure during rescan", 
-            details: error.message 
-          });
-        }
+        const updated = await storage.updateRouter(id, {
+          status: "online",
+          identity: systemInfo.identity,
+          version: systemInfo.version,
+          model: systemInfo.model,
+          ospfNeighbors,
+          lastSeen: new Date(),
+        });
         
-        // Regular connection errors mean router is offline
+        res.json(updated);
+      } else {
         const updated = await storage.updateRouter(id, {
           status: "offline",
           lastSeen: new Date(),
@@ -212,18 +170,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Start async scan task
       (async () => {
         try {
-          // Connect SSH tunnel if enabled - this is REQUIRED for Replit environment
-          if (settings?.sshTunnelEnabled) {
-            if (!settings?.sshTunnelHost || !settings?.sshTunnelUsername || !settings?.sshTunnelPassword) {
-              throw new Error("SSH tunnel is enabled but credentials are not configured");
-            }
-            
-            if (!sshTunnel.getStatus().connected) {
-              await sshTunnel.connect(settings.sshTunnelHost, settings.sshTunnelUsername, settings.sshTunnelPassword);
-            }
-          }
-          
-          const scanner = new NetworkScanner(username, password, storage, sshTunnel);
+          const scanner = new NetworkScanner(username, password, storage);
 
           await storage.updateScan(scan.id, { status: "scanning" });
 
@@ -263,11 +210,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
           scanProgressClients.delete(scan.id);
         } catch (error: any) {
-          // Provide more specific error message for SSH tunnel failures
-          const errorMessage = error instanceof SSHTunnelError
-            ? `SSH tunnel failure: ${error.message}. Check SSH tunnel configuration in Settings.`
-            : error.message;
-
           await storage.updateScan(scan.id, {
             status: "error",
             completedAt: new Date(),
@@ -280,7 +222,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 progress: 0,
                 status: "error",
                 routersFound: 0,
-                error: errorMessage,
+                error: error.message,
               })}\n\n`
             );
             client.end();
@@ -345,10 +287,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const settings = await storage.getSettings();
       res.json(settings || {
         id: "default",
-        tailscaleStatus: "disconnected",
         mikrotikUsername: defaultUsername,
         mikrotikPassword: null,
-        defaultSubnets: [],
       });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -369,106 +309,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       res.json(settings);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  app.post("/api/settings/ssh-tunnel", async (req: Request, res: Response) => {
-    try {
-      const { enabled, host, username, password } = req.body;
-
-      const settings = await storage.updateSettings({
-        sshTunnelEnabled: enabled,
-        sshTunnelHost: host,
-        sshTunnelUsername: username,
-        sshTunnelPassword: password,
-      });
-
-      res.json(settings);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  app.get("/api/ssh-tunnel/status", async (req: Request, res: Response) => {
-    try {
-      const status = sshTunnel.getStatus();
-      res.json(status);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  app.post("/api/ssh-tunnel/connect", async (req: Request, res: Response) => {
-    try {
-      const settings = await storage.getSettings();
-      
-      if (!settings?.sshTunnelHost || !settings?.sshTunnelUsername || !settings?.sshTunnelPassword) {
-        return res.status(400).json({ error: "SSH tunnel credentials not configured" });
-      }
-
-      await sshTunnel.connect(
-        settings.sshTunnelHost,
-        settings.sshTunnelUsername,
-        settings.sshTunnelPassword
-      );
-
-      const status = sshTunnel.getStatus();
-      res.json(status);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  app.post("/api/ssh-tunnel/disconnect", async (req: Request, res: Response) => {
-    try {
-      sshTunnel.disconnect();
-      const status = sshTunnel.getStatus();
-      res.json(status);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  app.get("/api/tailscale/daemon/status", async (req: Request, res: Response) => {
-    try {
-      const status = await tailscale.getDaemonStatus();
-      res.json(status);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  app.post("/api/tailscale/daemon/start", async (req: Request, res: Response) => {
-    try {
-      const result = await tailscale.startDaemon();
-      res.json(result);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  app.get("/api/tailscale/status", async (req: Request, res: Response) => {
-    try {
-      const status = await tailscale.getStatus();
-      res.json(status);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  app.post("/api/tailscale/connect", async (req: Request, res: Response) => {
-    try {
-      const { authKey } = req.body;
-      await tailscale.connect(authKey);
-      const status = await tailscale.getStatus();
-      
-      await storage.updateSettings({
-        tailscaleStatus: status.connected ? "connected" : "disconnected",
-      });
-
-      res.json(status);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
