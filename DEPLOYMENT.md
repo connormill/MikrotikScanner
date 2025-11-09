@@ -7,13 +7,28 @@
 - Access to your MikroTik router network
 - PostgreSQL database (included in docker-compose setup)
 
-### 1. Clone and Configure
+### 1. Get the Code
 
+**Option A: Download from Replit**
+1. In your Replit workspace, click the three dots menu (⋮)
+2. Select "Download as zip"
+3. Transfer the zip file to your VM and extract it:
 ```bash
-# Clone the repository
-git clone <repository-url>
+unzip mikronet.zip
 cd mikronet
+```
 
+**Option B: Push to GitHub (Recommended)**
+1. In Replit, open the Git pane from the Tools section
+2. Connect to GitHub and push your code
+3. Clone from GitHub on your VM:
+```bash
+git clone https://github.com/YOUR_USERNAME/YOUR_REPO.git
+cd YOUR_REPO
+```
+
+**Configure Environment:**
+```bash
 # Create environment file
 cp .env.example .env
 
