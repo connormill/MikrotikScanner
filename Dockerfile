@@ -2,19 +2,19 @@
 FROM node:20-slim AS base
 WORKDIR /app
 
-# Install dependencies only
-FROM base AS deps
-COPY package*.json ./
-RUN npm ci
-
-# Build the application
+# Build stage - install ALL dependencies (including devDependencies)
 FROM base AS builder
 COPY package*.json ./
-COPY --from=deps /app/node_modules ./node_modules
+RUN npm ci --include=dev
 COPY . .
 
-# Build the frontend
+# Build the frontend and backend
 RUN npm run build
+
+# Production dependencies only
+FROM base AS prod-deps
+COPY package*.json ./
+RUN npm ci --omit=dev
 
 # Production image
 FROM node:20-slim AS runner
@@ -24,8 +24,8 @@ WORKDIR /app
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nodejs
 
-# Copy necessary files
-COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
+# Copy production dependencies and built files
+COPY --from=prod-deps --chown=nodejs:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=nodejs:nodejs /app/package.json ./package.json
 COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
 COPY --from=builder --chown=nodejs:nodejs /app/server ./server
