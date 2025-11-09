@@ -1,7 +1,6 @@
 import CIDR from "ip-cidr";
-import { MikrotikClient, SSHTunnelError } from "./mikrotik";
-import type { Router, OSPFNeighbor, IStorage } from "@shared/schema";
-import type { SSHTunnelManager } from "./ssh-tunnel";
+import { MikrotikClient } from "./mikrotik";
+import type { Router } from "@shared/schema";
 
 export interface ScanProgress {
   progress: number;
@@ -15,8 +14,8 @@ export class NetworkScanner {
   private mikrotikClient: MikrotikClient;
   private storage: any;
 
-  constructor(username: string, password: string, storage: any, sshTunnel?: SSHTunnelManager) {
-    this.mikrotikClient = new MikrotikClient(username, password, sshTunnel);
+  constructor(username: string, password: string, storage: any) {
+    this.mikrotikClient = new MikrotikClient(username, password);
     this.storage = storage;
   }
 
@@ -50,17 +49,7 @@ export class NetworkScanner {
           });
         }
 
-        let isOnline = false;
-        try {
-          isOnline = await this.mikrotikClient.testConnection(ip);
-        } catch (error: any) {
-          // If SSH tunnel fails, abort the entire scan
-          if (error instanceof SSHTunnelError) {
-            throw error;
-          }
-          // Regular connection errors just mean this router is offline
-          isOnline = false;
-        }
+        const isOnline = await this.mikrotikClient.testConnection(ip);
         
         if (isOnline) {
           const systemInfo = await this.mikrotikClient.getSystemInfo(ip);
