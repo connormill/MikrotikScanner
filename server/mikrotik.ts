@@ -3,6 +3,13 @@ import type { OSPFNeighbor } from "@shared/schema";
 import type { SSHTunnelManager } from "./ssh-tunnel";
 import net from "net";
 
+export class SSHTunnelError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "SSHTunnelError";
+  }
+}
+
 export class MikrotikClient {
   private username: string;
   private password: string;
@@ -24,7 +31,7 @@ export class MikrotikClient {
         console.log(`Using SSH tunnel to connect to ${host}`);
       } catch (error: any) {
         console.error(`SSH tunnel forward failed for ${host}:`, error.message);
-        throw error;
+        throw new SSHTunnelError(`SSH tunnel forward failed to ${host}: ${error.message}`);
       }
     }
 
@@ -58,6 +65,10 @@ export class MikrotikClient {
         model: resource?.["board-name"] || undefined,
       };
     } catch (error) {
+      // SSH tunnel errors are fatal - rethrow them
+      if (error instanceof SSHTunnelError) {
+        throw error;
+      }
       console.error(`Failed to get system info from ${host}:`, error);
       return {};
     } finally {
@@ -85,6 +96,10 @@ export class MikrotikClient {
         interface: neighbor.interface || "",
       }));
     } catch (error) {
+      // SSH tunnel errors are fatal - rethrow them
+      if (error instanceof SSHTunnelError) {
+        throw error;
+      }
       console.error(`Failed to get OSPF neighbors from ${host}:`, error);
       return [];
     } finally {
@@ -102,6 +117,11 @@ export class MikrotikClient {
       console.log(`✓ Connection successful: ${host}`);
       return true;
     } catch (error) {
+      // SSH tunnel errors are fatal - rethrow them
+      if (error instanceof SSHTunnelError) {
+        throw error;
+      }
+      // Regular connection errors just mean router is offline
       console.log(`✗ Connection failed: ${host}`);
       return false;
     } finally {

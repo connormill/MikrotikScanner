@@ -5,9 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Shield, Save, CheckCircle2, XCircle, Loader2, Power, Wifi } from "lucide-react";
+import { Shield, Save, CheckCircle2, XCircle, Loader2, Power, Wifi, Server } from "lucide-react";
 import type { Settings as SettingsType } from "@shared/schema";
 
 export default function SettingsPage() {
@@ -15,6 +16,10 @@ export default function SettingsPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [authKey, setAuthKey] = useState("");
+  const [sshEnabled, setSshEnabled] = useState(false);
+  const [sshHost, setSshHost] = useState("");
+  const [sshUsername, setSshUsername] = useState("");
+  const [sshPassword, setSshPassword] = useState("");
 
   const { data: settings } = useQuery<SettingsType>({
     queryKey: ["/api/settings"],
@@ -32,6 +37,14 @@ export default function SettingsPage() {
     error?: string 
   }>({
     queryKey: ["/api/tailscale/status"],
+    refetchInterval: 10000,
+  });
+
+  const { data: sshTunnelStatus } = useQuery<{
+    connected: boolean;
+    host: string;
+  }>({
+    queryKey: ["/api/ssh-tunnel/status"],
     refetchInterval: 10000,
   });
 
@@ -98,6 +111,67 @@ export default function SettingsPage() {
     },
   });
 
+  const saveSSHTunnelMutation = useMutation({
+    mutationFn: async (data: { enabled: boolean; host: string; username: string; password: string }) => {
+      return apiRequest("POST", "/api/settings/ssh-tunnel", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
+      toast({
+        title: "SSH tunnel configured",
+        description: "SSH tunnel settings have been saved",
+      });
+      setSshPassword("");
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to save",
+        description: error.message || "An error occurred",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const connectSSHTunnelMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", "/api/ssh-tunnel/connect", {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/ssh-tunnel/status"] });
+      toast({
+        title: "SSH tunnel connected",
+        description: "Successfully established SSH tunnel connection",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Connection failed",
+        description: error.message || "Failed to connect SSH tunnel",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const disconnectSSHTunnelMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", "/api/ssh-tunnel/disconnect", {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/ssh-tunnel/status"] });
+      toast({
+        title: "SSH tunnel disconnected",
+        description: "SSH tunnel connection closed",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Disconnection failed",
+        description: error.message || "Failed to disconnect SSH tunnel",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleSaveCredentials = () => {
     if (!username || !password) {
       toast({
@@ -110,6 +184,23 @@ export default function SettingsPage() {
     saveCredentialsMutation.mutate({ username, password });
   };
 
+  const handleSaveSSHTunnel = () => {
+    if (sshEnabled && (!sshHost || !sshUsername || !sshPassword)) {
+      toast({
+        title: "Missing credentials",
+        description: "Please enter SSH host, username, and password",
+        variant: "destructive",
+      });
+      return;
+    }
+    saveSSHTunnelMutation.mutate({
+      enabled: sshEnabled,
+      host: sshHost || settings?.sshTunnelHost || "",
+      username: sshUsername || settings?.sshTunnelUsername || "",
+      password: sshPassword,
+    });
+  };
+
   const handleConnect = () => {
     connectTailscaleMutation.mutate(authKey);
   };
@@ -119,7 +210,7 @@ export default function SettingsPage() {
       <div>
         <h1 className="text-2xl font-semibold">Settings</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Configure Tailscale connection and Mikrotik router credentials
+          Configure SSH tunnel, Tailscale connection, and MikroTik router credentials
         </p>
       </div>
 
@@ -280,6 +371,168 @@ export default function SettingsPage() {
 
       <Card>
         <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Server className="h-5 w-5" />
+            SSH Tunnel
+          </CardTitle>
+          <CardDescription>
+            Establish SSH tunnel through bastion host to access MikroTik routers
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label htmlFor="ssh-enabled">Enable SSH Tunnel</Label>
+              <p className="text-xs text-muted-foreground">
+                Required for Replit environment to bypass networking limitations
+              </p>
+            </div>
+            <Switch
+              id="ssh-enabled"
+              checked={sshEnabled || settings?.sshTunnelEnabled || false}
+              onCheckedChange={setSshEnabled}
+              data-testid="switch-ssh-enabled"
+            />
+          </div>
+
+          {(sshEnabled || settings?.sshTunnelEnabled) && (
+            <>
+              <div className="space-y-4 pt-4 border-t">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-sm font-medium">Connection Status</h4>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      SSH tunnel to bastion host
+                    </p>
+                  </div>
+                  {sshTunnelStatus?.connected ? (
+                    <Badge variant="outline" className="bg-success/10 text-success border-success/20">
+                      <CheckCircle2 className="h-3 w-3 mr-1" />
+                      Connected
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="bg-muted text-muted-foreground border-muted-foreground/20">
+                      <XCircle className="h-3 w-3 mr-1" />
+                      Disconnected
+                    </Badge>
+                  )}
+                </div>
+
+                {sshTunnelStatus?.connected && sshTunnelStatus.host && (
+                  <div className="p-4 rounded-lg bg-success/5 border border-success/20">
+                    <p className="text-sm text-muted-foreground">SSH Host</p>
+                    <p className="font-mono text-sm font-medium mt-1">{sshTunnelStatus.host}</p>
+                  </div>
+                )}
+
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="sshHost">Bastion Host</Label>
+                    <Input
+                      id="sshHost"
+                      type="text"
+                      placeholder="100.74.182.78"
+                      value={sshHost || settings?.sshTunnelHost || ""}
+                      onChange={(e) => setSshHost(e.target.value)}
+                      data-testid="input-ssh-host"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="sshUsername">SSH Username</Label>
+                    <Input
+                      id="sshUsername"
+                      type="text"
+                      placeholder="root"
+                      value={sshUsername || settings?.sshTunnelUsername || ""}
+                      onChange={(e) => setSshUsername(e.target.value)}
+                      data-testid="input-ssh-username"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="sshPassword">SSH Password</Label>
+                    <Input
+                      id="sshPassword"
+                      type="password"
+                      placeholder="Enter SSH password"
+                      value={sshPassword}
+                      onChange={(e) => setSshPassword(e.target.value)}
+                      data-testid="input-ssh-password"
+                    />
+                  </div>
+
+                  <Button
+                    onClick={handleSaveSSHTunnel}
+                    disabled={saveSSHTunnelMutation.isPending}
+                    variant="outline"
+                    className="w-full"
+                    data-testid="button-save-ssh-config"
+                  >
+                    {saveSSHTunnelMutation.isPending ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="mr-2 h-4 w-4" />
+                        Save SSH Configuration
+                      </>
+                    )}
+                  </Button>
+
+                  {!sshTunnelStatus?.connected && (
+                    <Button
+                      onClick={() => connectSSHTunnelMutation.mutate()}
+                      disabled={connectSSHTunnelMutation.isPending}
+                      className="w-full"
+                      data-testid="button-connect-ssh"
+                    >
+                      {connectSSHTunnelMutation.isPending ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Connecting...
+                        </>
+                      ) : (
+                        <>
+                          <Server className="mr-2 h-4 w-4" />
+                          Connect SSH Tunnel
+                        </>
+                      )}
+                    </Button>
+                  )}
+
+                  {sshTunnelStatus?.connected && (
+                    <Button
+                      onClick={() => disconnectSSHTunnelMutation.mutate()}
+                      disabled={disconnectSSHTunnelMutation.isPending}
+                      variant="outline"
+                      className="w-full"
+                      data-testid="button-disconnect-ssh"
+                    >
+                      {disconnectSSHTunnelMutation.isPending ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Disconnecting...
+                        </>
+                      ) : (
+                        <>
+                          <XCircle className="mr-2 h-4 w-4" />
+                          Disconnect SSH Tunnel
+                        </>
+                      )}
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle>Mikrotik Credentials</CardTitle>
           <CardDescription>
             Set default username and password for connecting to your Mikrotik routers
@@ -364,6 +617,12 @@ export default function SettingsPage() {
             <span className="text-sm">Tailscale Network</span>
             <Badge variant="outline">
               {tailscaleStatus?.connected ? "Connected" : "Disconnected"}
+            </Badge>
+          </div>
+          <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+            <span className="text-sm">SSH Tunnel</span>
+            <Badge variant="outline">
+              {sshTunnelStatus?.connected ? "Connected" : "Disconnected"}
             </Badge>
           </div>
         </CardContent>
