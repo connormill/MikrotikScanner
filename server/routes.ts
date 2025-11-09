@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { DatabaseStorage } from "./db-storage";
 import { MikrotikClient } from "./mikrotik";
 import { TailscaleManager } from "./tailscale";
+import { SSHTunnelManager } from "./ssh-tunnel";
 import { NetworkScanner, type ScanProgress } from "./scanner";
 import { insertScanSchema, updateRouterSchema } from "@shared/schema";
 import { z } from "zod";
@@ -17,6 +18,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const defaultPassword = process.env.MIKROTIK_PASSWORD || "";
 
   const tailscale = new TailscaleManager(tailscaleAuthKey);
+  const sshTunnel = new SSHTunnelManager();
 
   await storage.updateSettings({
     mikrotikUsername: defaultUsername,

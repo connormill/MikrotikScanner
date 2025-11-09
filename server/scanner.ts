@@ -1,6 +1,7 @@
 import CIDR from "ip-cidr";
 import { MikrotikClient } from "./mikrotik";
 import type { Router, OSPFNeighbor, IStorage } from "@shared/schema";
+import type { SSHTunnelManager } from "./ssh-tunnel";
 
 export interface ScanProgress {
   progress: number;
@@ -14,8 +15,8 @@ export class NetworkScanner {
   private mikrotikClient: MikrotikClient;
   private storage: any;
 
-  constructor(username: string, password: string, storage: any) {
-    this.mikrotikClient = new MikrotikClient(username, password);
+  constructor(username: string, password: string, storage: any, sshTunnel?: SSHTunnelManager) {
+    this.mikrotikClient = new MikrotikClient(username, password, sshTunnel);
     this.storage = storage;
   }
 
