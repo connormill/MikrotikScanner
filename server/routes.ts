@@ -101,7 +101,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const username = settings?.mikrotikUsername || defaultUsername;
       const password = settings?.mikrotikPassword || defaultPassword;
       
-      const mikrotikClient = new MikrotikClient(username, password);
+      // Connect SSH tunnel if enabled
+      if (settings?.sshTunnelEnabled && settings?.sshTunnelHost && settings?.sshTunnelUsername && settings?.sshTunnelPassword) {
+        try {
+          if (!sshTunnel.getStatus().connected) {
+            await sshTunnel.connect(settings.sshTunnelHost, settings.sshTunnelUsername, settings.sshTunnelPassword);
+          }
+        } catch (error: any) {
+          console.error("SSH tunnel connection failed:", error.message);
+        }
+      }
+      
+      const mikrotikClient = new MikrotikClient(username, password, sshTunnel);
       
       try {
         const isOnline = await mikrotikClient.testConnection(router.ip);
@@ -181,7 +192,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const settings = await storage.getSettings();
       const username = settings?.mikrotikUsername || defaultUsername;
       const password = settings?.mikrotikPassword || defaultPassword;
-      const scanner = new NetworkScanner(username, password, storage);
+      
+      // Connect SSH tunnel if enabled
+      if (settings?.sshTunnelEnabled && settings?.sshTunnelHost && settings?.sshTunnelUsername && settings?.sshTunnelPassword) {
+        try {
+          if (!sshTunnel.getStatus().connected) {
+            await sshTunnel.connect(settings.sshTunnelHost, settings.sshTunnelUsername, settings.sshTunnelPassword);
+          }
+        } catch (error: any) {
+          console.error("SSH tunnel connection failed:", error.message);
+        }
+      }
+      
+      const scanner = new NetworkScanner(username, password, storage, sshTunnel);
 
       (async () => {
         try {
@@ -324,6 +347,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       res.json(settings);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/settings/ssh-tunnel", async (req: Request, res: Response) => {
+    try {
+      const { enabled, host, username, password } = req.body;
+
+      const settings = await storage.updateSettings({
+        sshTunnelEnabled: enabled,
+        sshTunnelHost: host,
+        sshTunnelUsername: username,
+        sshTunnelPassword: password,
+      });
+
+      res.json(settings);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/ssh-tunnel/status", async (req: Request, res: Response) => {
+    try {
+      const status = sshTunnel.getStatus();
+      res.json(status);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/ssh-tunnel/connect", async (req: Request, res: Response) => {
+    try {
+      const settings = await storage.getSettings();
+      
+      if (!settings?.sshTunnelHost || !settings?.sshTunnelUsername || !settings?.sshTunnelPassword) {
+        return res.status(400).json({ error: "SSH tunnel credentials not configured" });
+      }
+
+      await sshTunnel.connect(
+        settings.sshTunnelHost,
+        settings.sshTunnelUsername,
+        settings.sshTunnelPassword
+      );
+
+      const status = sshTunnel.getStatus();
+      res.json(status);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/ssh-tunnel/disconnect", async (req: Request, res: Response) => {
+    try {
+      sshTunnel.disconnect();
+      const status = sshTunnel.getStatus();
+      res.json(status);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
