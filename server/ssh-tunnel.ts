@@ -27,6 +27,7 @@ export class SSHTunnelManager {
 
       this.client.on("error", (err: Error) => {
         console.error("✗ SSH tunnel error:", err.message);
+        console.error("Error details:", err);
         this.isConnected = false;
         reject(err);
       });
@@ -36,13 +37,21 @@ export class SSHTunnelManager {
         this.isConnected = false;
       });
 
-      console.log(`Connecting SSH tunnel to ${host}...`);
+      this.client.on("timeout", () => {
+        console.error("✗ SSH connection timeout");
+        reject(new Error("SSH connection timeout - unable to reach SSH host"));
+      });
+
+      console.log(`Connecting SSH tunnel to ${host}:22 with username ${username}...`);
       this.client.connect({
         host,
         port: 22,
         username,
         password,
-        readyTimeout: 10000,
+        readyTimeout: 30000, // Increased to 30 seconds
+        debug: (msg: string) => {
+          console.log("[SSH Debug]:", msg);
+        },
       });
     });
   }
