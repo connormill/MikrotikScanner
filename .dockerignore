@@ -54,11 +54,17 @@ replit.nix
 *.md
 !DEPLOYMENT.md
 
+# Keep necessary config files for build
+!tsconfig.json
+!vite.config.ts
+!tailwind.config.ts
+!postcss.config.js
+!drizzle.config.ts
+
 # Development files
 .eslintrc*
 .prettierrc*
-tsconfig.json
-vite.config.ts
+# Note: tsconfig.json and vite.config.ts are NEEDED for the build
 
 # Database files (local development)
 *.db
